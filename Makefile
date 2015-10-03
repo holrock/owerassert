@@ -1,4 +1,4 @@
-.PHONY: clean
+.PHONY: clean test
 
 src := test.ml
 

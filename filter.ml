@@ -50,7 +50,7 @@ let may_tuple tup = function
   | l -> Some (tup ?loc:None ?attrs:None l)
 
 let lid s = mkloc (Longident.parse s) !default_loc
-let const_string str = Exp.constant (Const_string (str, None))
+let const_string str = Exp.constant @@ Const_string (str, None)
 let constr s args = Exp.construct (lid s) (may_tuple Exp.tuple args)
 let nil () = constr "[]" []
 let unit () = constr "()" []
@@ -63,24 +63,22 @@ let gensym =
 
 let expr_of_eprintf ~loc format args =
   Exp.apply ~loc
-    (Exp.ident ~loc (lid "Printf.eprintf"))
-    (("", (const_string format)) :: args)
+    (Exp.ident ~loc @@ lid "Printf.eprintf")
+    (("", const_string format) :: args)
 
 let expr_of_apply_arg expr =
-  ("", (const_string (string_of_expr_desc expr.pexp_desc)))
+  ("", const_string @@ string_of_expr_desc expr.pexp_desc)
 
 let expr_puts_syms ~loc syms args =
   List.map2 (fun sym (_, expr) ->
     expr_of_eprintf ~loc "%s -> %s\n"
         [expr_of_apply_arg expr;
-         ("", (Exp.apply ~loc (Exp.ident ~loc (lid "Batteries.dump")) ["", Exp.ident ~loc (lid sym)]))])
+         ("", (Exp.apply ~loc (Exp.ident ~loc @@ lid "Batteries.dump") ["", Exp.ident ~loc @@ lid sym]))])
   syms args
 
 let rec buid_seq_expr ~loc = function
-  | [] -> Exp.assert_ ~loc (constr "false" [])
-  | expr::exprs ->
-      Exp.sequence ~loc expr
-        (buid_seq_expr ~loc exprs)
+  | [] -> Exp.assert_ ~loc @@ constr "false" []
+  | expr::exprs -> buid_seq_expr ~loc exprs |> Exp.sequence ~loc expr
 
 let put_assert_expr ~loc f args =
   let assert_expr =
@@ -96,7 +94,7 @@ let put_assert_expr ~loc f args =
 let rewrite_assert f args loc =
   let syms = List.map (fun _ -> gensym ()) args in
   let vars = List.map2 (fun (_, expr) sym ->
-        Vb.mk ~loc (Pat.var ~loc { txt = sym; loc}) expr)
+        Vb.mk ~loc (Pat.var ~loc {txt = sym; loc}) expr)
         args syms
   in
   let assert_expr = put_assert_expr ~loc f args in
@@ -112,8 +110,8 @@ let rewrite_assert f args loc =
       (Some (buid_seq_expr ~loc
         (List.concat [
           assert_expr;
-          [(expr_of_eprintf ~loc "\n" [])];
-          (expr_puts_syms ~loc syms args)]))))
+          [expr_of_eprintf ~loc "\n" []];
+          expr_puts_syms ~loc syms args]))))
 
 let filter argv =
   { default_mapper with
